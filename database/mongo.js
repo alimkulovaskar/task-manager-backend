@@ -1,12 +1,14 @@
-require('dotenv').config();
 const { MongoClient } = require('mongodb');
-
-const uri = process.env.MONGO_URI;
-const client = new MongoClient(uri);
 
 let db;
 
 async function connect() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    throw new Error('MONGODB_URI is not defined');
+  }
+
+  const client = new MongoClient(uri);
   await client.connect();
   db = client.db();
   console.log('MongoDB connected');
