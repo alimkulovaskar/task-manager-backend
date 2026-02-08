@@ -7,13 +7,26 @@
 </head>
 <body>
 
+  <div id="login-section">
+  <h3>Login</h3>
+  <input type="text" id="login-username" placeholder="Username">
+  <input type="password" id="login-password" placeholder="Password">
+  <button onclick="login()">Login</button>
+  <p id="login-message"></p>
+</div>
+
+<hr>
+
+
   <h1>Task Manager</h1>
 
+<div id="task-section" style="display:none;">
   <form id="task-form">
     <input type="text" id="title" placeholder="Title" required />
     <input type="text" id="description" placeholder="Description" required />
     <button type="submit">Add Task</button>
   </form>
+</div>
 
   <ul id="task-list"></ul>
 

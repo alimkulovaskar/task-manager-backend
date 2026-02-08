@@ -1,3 +1,6 @@
+const User = require('./database/user');
+const bcrypt = require('bcrypt');
+const session = require('express-session');
 require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
@@ -8,6 +11,27 @@ const { ObjectId } = require('mongodb');
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use(express.json());
+
+app.use(
+  session({
+    name: 'sessionId',
+    secret: 'super-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,   // ОБЯЗАТЕЛЬНО
+      secure: false,    // true будет на Render (HTTPS)
+      maxAge: 1000 * 60 * 60 // 1 час
+    }
+  })
+);
+
+function isAuthenticated(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  next();
+}
 
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
@@ -62,7 +86,24 @@ app.get('/api/info', (req, res) => {
   });
 });
 
-app.get('/api/tasks', async (req, res) => {
+app.post('/api/users', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+
+  const existingUser = await User.findByUsername(username);
+  if (existingUser) {
+    return res.status(409).json({ error: 'User already exists' });
+  }
+
+  await User.create({ username, password });
+
+  res.status(201).json({ message: 'User created successfully' });
+});
+
+app.get('/api/tasks', isAuthenticated, async (req, res) => {
   try {
     const db = getDb();
     const { title, sort, fields, page = 1, limit = 5 } = req.query;
@@ -96,7 +137,7 @@ query = query.skip(parseInt(skip)).limit(parseInt(limit));
   }
 });
 
-app.get('/api/tasks/:id', async (req, res) => {
+app.get('/api/tasks/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -120,7 +161,82 @@ app.get('/api/tasks/:id', async (req, res) => {
   }
 });
 
-app.post('/api/tasks', async (req, res) => {
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+
+  const existingUser = await User.findByUsername(username);
+  if (existingUser) {
+    return res.status(409).json({ error: 'User already exists' });
+  }
+
+  // 🔐 ВОТ ЗДЕСЬ bcrypt.hash
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  await User.create({
+    username,
+    password: hashedPassword
+  });
+
+  res.status(201).json({ message: 'User registered successfully' });
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+
+  const user = await User.findByUsername(username);
+
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  // 🔐 bcrypt СРАВНЕНИЕ
+  const isMatch = await bcrypt.compare(password, user.password);
+
+  if (!isMatch) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+
+  // сохраняем пользователя в сессии
+  req.session.userId = user._id;
+  req.session.username = user.username;
+
+  res.status(200).json({
+    message: 'Logged in successfully',
+    user: {
+      id: user._id,
+      username: user.username
+    }
+  });
+});
+
+app.get('/profile', isAuthenticated, (req, res) => {
+  res.json({
+    message: 'Protected route',
+    userId: req.session.userId,
+    username: req.session.username
+  });
+});
+
+app.post('/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) {
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+
+    res.clearCookie('sessionId');
+    res.json({ message: 'Logged out' });
+  });
+});
+
+app.post('/api/tasks', isAuthenticated, async (req, res) => {
   try {
     const { title, description } = req.body;
 
@@ -146,7 +262,7 @@ app.post('/api/tasks', async (req, res) => {
   }
 });
 
-app.put('/api/tasks/:id', async (req, res) => {
+app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description } = req.body;
@@ -181,7 +297,7 @@ app.put('/api/tasks/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/tasks/:id', async (req, res) => {
+app.delete('/api/tasks/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
 
