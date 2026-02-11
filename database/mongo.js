@@ -10,7 +10,7 @@ async function connect() {
 
   const client = new MongoClient(uri);
   await client.connect();
-  db = client.db();
+  db = client.db("taskmanager");
   console.log('MongoDB connected');
 }
 
