@@ -1,22 +1,81 @@
 const taskForm = document.getElementById('task-form');
 const taskList = document.getElementById('task-list');
 
+const projectForm = document.getElementById('project-form');
+const projectList = document.getElementById('project-list');
+const projectSelect = document.getElementById('project-select');
+
+async function loadProjects() {
+  const res = await fetch('/api/projects');
+  if (!res.ok) return;
+
+  const projects = await res.json();
+
+  projectList.innerHTML = '';
+  projectSelect.innerHTML = '<option value="">No Project</option>';
+
+  projects.forEach(project => {
+    const li = document.createElement('li');
+    li.textContent = project.name;
+    projectList.appendChild(li);
+
+    const option = document.createElement('option');
+    option.value = project._id;
+    option.textContent = project.name;
+    projectSelect.appendChild(option);
+  });
+}
+
+projectForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const name = document.getElementById('project-name').value;
+
+  const res = await fetch('/api/projects', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+
+  if (res.ok) {
+    projectForm.reset();
+    loadProjects();
+  }
+});
+
+
 /* ================= MODAL ================= */
 
 function showLogin() {
-  document.getElementById('auth-modal').style.display = 'flex';
-  document.getElementById('login-box').style.display = 'block';
-  document.getElementById('register-box').style.display = 'none';
+  const modal = document.getElementById('auth-modal');
+  const loginBox = document.getElementById('login-box');
+  const registerBox = document.getElementById('register-box');
+
+  if (!modal || !loginBox || !registerBox) return;
+
+  modal.style.display = 'flex';
+  loginBox.style.display = 'block';
+  registerBox.style.display = 'none';
 }
 
 function showRegister() {
-  document.getElementById('auth-modal').style.display = 'flex';
-  document.getElementById('login-box').style.display = 'none';
-  document.getElementById('register-box').style.display = 'block';
+  const modal = document.getElementById('auth-modal');
+  const loginBox = document.getElementById('login-box');
+  const registerBox = document.getElementById('register-box');
+
+  if (!modal || !loginBox || !registerBox) return;
+
+  modal.style.display = 'flex';
+  loginBox.style.display = 'none';
+  registerBox.style.display = 'block';
 }
 
 function closeModal() {
   document.getElementById('auth-modal').style.display = 'none';
+}
+
+function goAdmin() {
+  window.location.href = "/admin";
 }
 
 /* ================= REGISTER ================= */
@@ -61,6 +120,9 @@ async function login() {
   } else {
     document.getElementById('login-message').innerText = data.error;
   }
+
+  sessionStorage.setItem("role", data.user.role);
+
 }
 
 /* ================= LOGOUT ================= */
@@ -93,28 +155,34 @@ async function checkAuth() {
   const res = await fetch('/api/check-auth');
   const data = await res.json();
 
+  const hero = document.querySelector('.hero');
+  const taskSection = document.getElementById('task-section');
+  const loginBtn = document.getElementById('login-btn');
+  const registerBtn = document.getElementById('register-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+
   if (data.authenticated) {
     isLoggedIn = true;
 
-    document.querySelector('.hero').style.display = 'none';
-    document.getElementById('task-section').style.display = 'block';
+    if (hero) hero.style.display = 'none';
+    if (taskSection) taskSection.style.display = 'block';
 
-    document.getElementById('login-btn').style.display = 'none';
-    document.getElementById('register-btn').style.display = 'none';
-    document.getElementById('logout-btn').style.display = 'inline-block';
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (registerBtn) registerBtn.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'inline-block';
 
   } else {
     isLoggedIn = false;
 
-    document.querySelector('.hero').style.display = 'block';
-    document.getElementById('task-section').style.display = 'none';
+    if (hero) hero.style.display = 'block';
+    if (taskSection) taskSection.style.display = 'none';
 
-    document.getElementById('login-btn').style.display = 'inline-block';
-    document.getElementById('register-btn').style.display = 'inline-block';
-    document.getElementById('logout-btn').style.display = 'none';
+    if (loginBtn) loginBtn.style.display = 'inline-block';
+    if (registerBtn) registerBtn.style.display = 'inline-block';
+    if (logoutBtn) logoutBtn.style.display = 'none';
   }
 
-  loadTasks();
+  if (taskSection) loadTasks();
 }
 
 /* ================= UI STATES ================= */
@@ -135,15 +203,22 @@ function updateNavbar(authenticated) {
   const loginBtn = document.getElementById('login-btn');
   const registerBtn = document.getElementById('register-btn');
   const logoutBtn = document.getElementById('logout-btn');
+  const adminBtn = document.getElementById('admin-btn');
 
   if (authenticated) {
     loginBtn.style.display = 'none';
     registerBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
+
+    if (sessionStorage.getItem("role") === "admin") {
+      adminBtn.style.display = 'inline-block';
+    }
+
   } else {
     loginBtn.style.display = 'inline-block';
     registerBtn.style.display = 'inline-block';
     logoutBtn.style.display = 'none';
+    adminBtn.style.display = 'none';
   }
 }
 
@@ -193,6 +268,7 @@ async function loadTasks() {
     <div class="task-content">
       <strong>${task.title}</strong>
       <p>${task.description}</p>
+      ${task.project ? `<small>Project: ${task.project.name}</small>` : ""}
       ${task.dueDate ? `<small>Due: ${new Date(task.dueDate).toLocaleDateString()}</small>` : ""}
       <span class="badge">${task.status}</span>
     </div>
@@ -216,10 +292,25 @@ async function loadTasks() {
 taskForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const title = document.getElementById('title').value;
-  const description = document.getElementById('description').value;
+  const title = document.getElementById('title').value.trim();
+  const description = document.getElementById('description').value.trim();
   const dueDate = document.getElementById('dueDate').value;
+  const errorBox = document.getElementById('task-error');
 
+  // 🔥 CLIENT VALIDATION
+  if (title.length < 3) {
+    errorBox.style.display = 'block';
+    errorBox.innerText = "Title must be at least 3 characters.";
+    return;
+  }
+
+  if (description.length < 3) {
+    errorBox.style.display = 'block';
+    errorBox.innerText = "Description must be at least 3 characters.";
+    return;
+  }
+
+  errorBox.style.display = 'none';
 
   const res = await fetch('/api/tasks', {
     method: 'POST',
@@ -227,10 +318,16 @@ taskForm?.addEventListener('submit', async (e) => {
     body: JSON.stringify({ title, description, dueDate })
   });
 
-  if (res.ok) {
-    taskForm.reset();
-    loadTasks();
+  const data = await res.json();
+
+  if (!res.ok) {
+    errorBox.style.display = 'block';
+    errorBox.innerText = data.error;
+    return;
   }
+
+  taskForm.reset();
+  loadTasks();
 });
 
 /* ================= CHANGE STATUS ================= */
@@ -272,6 +369,8 @@ async function updateTask(id) {
 /* ================= INITIAL ================= */
 
 checkAuth();
+loadProjects();
+
 
 /* ================= THEME ================= */
 
@@ -296,3 +395,24 @@ function loadTheme() {
 }
 
 loadTheme();
+
+async function loadUsers() {
+  const res = await fetch('/api/admin/users');
+  if (!res.ok) return;
+
+  const users = await res.json();
+  const list = document.getElementById('users-list');
+  if (!list) return;
+
+  list.innerHTML = '';
+
+  users.forEach(user => {
+    const li = document.createElement('li');
+    li.classList.add("task-item");
+    li.innerHTML = `
+      <strong>${user.username}</strong>
+      <span class="badge">${user.role}</span>
+    `;
+    list.appendChild(li);
+  });
+}

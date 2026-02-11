@@ -14,12 +14,14 @@
     <a href="/">Home</a>
     <a href="/about">About</a>
     <a href="/contact">Contact</a>
+    <a href="/admin">Admin</a>
   </nav>
 
   <div class="nav-buttons">
   <button id="login-btn" onclick="showLogin()">Login</button>
   <button id="register-btn" onclick="showRegister()">Register</button>
   <button id="logout-btn" onclick="logout()" style="display:none;">Logout</button>
+  <button id="admin-btn" onclick="goAdmin()" style="display:none;">Admin</button>
   <button id="theme-toggle" onclick="toggleTheme()">🌙</button>
 </div>
 </header>
@@ -57,13 +59,31 @@
 
 <!-- TASK SECTION -->
 <section id="task-section" style="display:none;">
+
+  <div class="projects-section">
+  <h2>Your Projects</h2>
+
+  <form id="project-form">
+    <input type="text" id="project-name" placeholder="New project name" required />
+    <button type="submit">Add Project</button>
+  </form>
+
+  <ul id="project-list"></ul>
+</div>
+
   <h2>Your Tasks</h2>
 
   <form id="task-form">
     <input type="text" id="title" placeholder="Title" required />
     <input type="text" id="description" placeholder="Description" required />
     <input type="date" id="dueDate">
+
+    <select id="project-select">
+  <option value="">No Project</option>
+</select>
+
     <button class="btn-primary" type="submit">Add Task</button>
+    <small id="task-error" style="color:#ff6b6b; display:none;"></small>
   </form>
 
   <div class="filters">

@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Contact - TaskManager</title>
+  <meta charset="UTF-8" />
+  <title>Admin Dashboard - TaskManager</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -14,56 +14,51 @@
     <a href="/">Home</a>
     <a href="/about">About</a>
     <a href="/contact">Contact</a>
-    <a href="/admin">Admin</a>
   </nav>
 
   <div class="nav-buttons">
     <button id="login-btn" onclick="showLogin()">Login</button>
     <button id="register-btn" onclick="showRegister()">Register</button>
-    <button id="logout-btn" onclick="logout()" style="display:none;">Logout</button>
     <button id="admin-btn" onclick="goAdmin()" style="display:none;">Admin</button>
+    <button id="logout-btn" onclick="logout()" style="display:none;">Logout</button>
     <button id="theme-toggle" onclick="toggleTheme()">🌙</button>
   </div>
 </header>
 
-<main>
-  <section class="page-section">
-    <h1>Contact Us</h1>
-    <p>Feel free to reach out.</p>
+<section class="hero">
+  <h1>Admin Dashboard</h1>
+  <p>Manage users and system data</p>
+</section>
 
-    <form class="contact-form">
-      <input type="text" placeholder="Your name" required>
-      <input type="email" placeholder="Your email" required>
-      <textarea placeholder="Your message" required></textarea>
-      <button class="btn-primary">Send Message</button>
-    </form>
-  </section>
-</main>
+<section style="padding:40px;">
+  <h2>All Users</h2>
+  <ul id="users-list" class="admin-list"></ul>
+</section>
 
 <footer class="footer">
   <div class="footer-container">
 
-    <div>
+    <div class="footer-left">
       <h3>TaskManager</h3>
       <p>Secure and modern task management platform.</p>
       <p>© 2026 TaskManager. All rights reserved.</p>
     </div>
 
-    <div>
+    <div class="footer-links">
       <h4>Company</h4>
       <a href="/">Home</a>
       <a href="/about">About</a>
       <a href="/contact">Contact</a>
     </div>
 
-    <div>
+    <div class="footer-links">
       <h4>Legal</h4>
       <a href="#">Privacy Policy</a>
       <a href="#">Terms of Service</a>
       <a href="#">Cookies</a>
     </div>
 
-    <div>
+    <div class="footer-social">
       <h4>Follow Us</h4>
       <a href="#">Twitter</a>
       <a href="#">LinkedIn</a>
@@ -74,6 +69,10 @@
 </footer>
 
 <script src="/app.js"></script>
+<script>
+  checkAuth();
+  loadUsers();
+</script>
 
 </body>
 </html>

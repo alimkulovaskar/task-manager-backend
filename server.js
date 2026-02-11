@@ -7,6 +7,7 @@ const fs = require('fs');
 const app = express();
 const { connect, getDb } = require('./database/mongo');
 const { ObjectId } = require('mongodb');
+const validateTask = require('./middleware/validateTask');
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
@@ -15,7 +16,7 @@ app.use(express.json());
 app.use(
   session({
     name: 'sessionId',
-    secret: 'super-secret-key',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -33,6 +34,20 @@ function isAuthenticated(req, res, next) {
   next();
 }
 
+function requireRole(role) {
+  return (req, res, next) => {
+    if (!req.session.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (req.session.user.role !== role) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    next();
+  };
+}
+
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
@@ -48,6 +63,10 @@ app.get('/about', (req, res) => {
 
 app.get('/contact', (req, res) => {
   res.sendFile(__dirname + '/views/contact.html');
+});
+
+app.get('/admin', isAuthenticated, requireRole('admin'), (req, res) => {
+  res.sendFile(__dirname + '/views/admin.html');
 });
 
 app.get('/search', (req, res) => {
@@ -97,54 +116,59 @@ app.get('/api/check-auth', (req, res) => {
   res.json({ authenticated: false });
 });
 
-app.post('/api/users', async (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password required' });
-  }
-
-  const existingUser = await User.findByUsername(username);
-  if (existingUser) {
-    return res.status(409).json({ error: 'User already exists' });
-  }
-
-  await User.create({ username, password });
-
-  res.status(201).json({ message: 'User created successfully' });
-});
-
 app.get('/api/tasks', isAuthenticated, async (req, res) => {
   try {
     const db = getDb();
-    const { title, sort, fields, page = 1, limit = 5 } = req.query;
+    const { title, page = 1, limit = 5 } = req.query;
 
-    const filter = {};
+    let filter = {};
+
+    // 👤 Owner access
+    if (req.session.user.role === "admin") {
+      filter = {};
+    } else {
+      filter = { userId: new ObjectId(req.session.userId) };
+    }
+
+    // 🔍 Поиск по title
     if (title) {
-      filter.title = { $regex: title, $options: 'i' };
-    }
-
-    let query = db.collection('tasks').find(filter);
-
-    if (sort) {
-      const sortOrder = sort === 'desc' ? -1 : 1;
-      query = query.sort({ title: sortOrder });
-    }
-
-    if (fields) {
-      const projection = {};
-      fields.split(',').forEach(f => projection[f] = 1);
-      query = query.project(projection);
+      filter.title = { $regex: title, $options: "i" };
     }
 
     const skip = (page - 1) * limit;
-query = query.skip(parseInt(skip)).limit(parseInt(limit));
 
-    const tasks = await query.toArray();
+    let pipeline = [
+      { $match: filter },
+
+      {
+        $lookup: {
+          from: "projects",
+          localField: "projectId",
+          foreignField: "_id",
+          as: "project"
+        }
+      },
+
+      {
+        $unwind: {
+          path: "$project",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+
+      { $skip: parseInt(skip) },
+      { $limit: parseInt(limit) }
+    ];
+
+    const tasks = await db
+      .collection("tasks")
+      .aggregate(pipeline)
+      .toArray();
+
     res.status(200).json(tasks);
 
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: "Database error" });
   }
 });
 
@@ -173,59 +197,82 @@ app.get('/api/tasks/:id', isAuthenticated, async (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password required' });
+    if (!username || !password) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ error: "Username must be at least 3 characters" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+
+    const existingUser = await User.findByUsername(username);
+    if (existingUser) {
+      return res.status(409).json({ error: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await User.create({
+      username,
+      password: hashedPassword,
+      role: "user"
+    });
+
+    res.status(201).json({ message: "User registered successfully" });
+
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
   }
-
-  const existingUser = await User.findByUsername(username);
-  if (existingUser) {
-    return res.status(409).json({ error: 'User already exists' });
-  }
-
-  // 🔐 ВОТ ЗДЕСЬ bcrypt.hash
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  await User.create({
-    username,
-    password: hashedPassword
-  });
-
-  res.status(201).json({ message: 'User registered successfully' });
 });
 
 app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password required' });
-  }
-
-  const user = await User.findByUsername(username);
-
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-
-  // 🔐 bcrypt СРАВНЕНИЕ
-  const isMatch = await bcrypt.compare(password, user.password);
-
-  if (!isMatch) {
-    return res.status(401).json({ error: 'Invalid credentials' });
-  }
-
-  // сохраняем пользователя в сессии
-  req.session.userId = user._id;
-  req.session.username = user.username;
-
-  res.status(200).json({
-    message: 'Logged in successfully',
-    user: {
-      id: user._id,
-      username: user.username
+    if (!username || !password) {
+      return res.status(400).json({ error: "All fields are required" });
     }
-  });
+
+    if (username.length < 3 || password.length < 6) {
+      return res.status(400).json({ error: "Invalid input format" });
+    }
+
+    const user = await User.findByUsername(username);
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    req.session.userId = user._id;
+    req.session.user = {
+      id: user._id,
+      username: user.username,
+      role: user.role
+    };
+
+    res.json({
+      message: "Logged in successfully",
+      user: {
+        id: user._id,
+        username: user.username,
+        role: user.role
+      }
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 app.get('/profile', isAuthenticated, (req, res) => {
@@ -247,14 +294,100 @@ app.post('/logout', (req, res) => {
   });
 });
 
-app.post('/api/tasks', isAuthenticated, async (req, res) => {
+app.get(
+  '/api/admin/users',
+  isAuthenticated,
+  requireRole('admin'),
+  async (req, res) => {
+    try {
+      const db = getDb();
+
+      const users = await db
+        .collection('users')
+        .find({}, { projection: { password: 0 } }) // не показываем пароль
+        .toArray();
+
+      res.json(users);
+
+    } catch (err) {
+      res.status(500).json({ error: 'Database error' });
+    }
+  }
+);
+
+app.post('/api/projects', isAuthenticated, async (req, res) => {
   try {
-    const { title, description, dueDate } = req.body;
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Project name required' });
+    }
+
+    if (!name) {
+  return res.status(400).json({ error: "Project name required" });
+}
+
+if (name.length < 3) {
+  return res.status(400).json({ error: "Project name too short" });
+}
+
+    const db = getDb();
+
+    const newProject = {
+      name,
+      userId: new ObjectId(req.session.userId),
+      createdAt: new Date()
+    };
+
+    const result = await db.collection('projects').insertOne(newProject);
+
+    res.status(201).json({
+      _id: result.insertedId,
+      ...newProject
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.get('/api/projects', isAuthenticated, async (req, res) => {
+  try {
+    const db = getDb();
+
+    let filter = {};
+
+    if (req.session.user.role !== "admin") {
+      filter.userId = new ObjectId(req.session.userId);
+    }
+
+    const projects = await db.collection('projects').find(filter).toArray();
+
+    res.json(projects);
+
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/tasks', isAuthenticated, validateTask, async (req, res) => {
+  try {
+    const { title, description, dueDate, projectId } = req.body;
 
     if (!title || !description) {
-      return res.status(400).json({
-        error: 'Title and description are required'
-      });
+      return res.status(400).json({ error: "Title and description required" });
+    }
+
+    if (title.length < 3) {
+      return res.status(400).json({ error: "Title too short" });
+    }
+
+    if (description.length < 3) {
+      return res.status(400).json({ error: "Description too short" });
+    }
+
+    if (dueDate && isNaN(Date.parse(dueDate))) {
+      return res.status(400).json({ error: "Invalid due date" });
     }
 
     const db = getDb();
@@ -264,6 +397,8 @@ app.post('/api/tasks', isAuthenticated, async (req, res) => {
       description,
       status: "To Do",
       dueDate: dueDate ? new Date(dueDate) : null,
+      projectId: projectId ? new ObjectId(projectId) : null,
+      userId: new ObjectId(req.session.userId),
       createdAt: new Date()
     };
 
@@ -275,11 +410,11 @@ app.post('/api/tasks', isAuthenticated, async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: "Database error" });
   }
 });
 
-app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
+app.put('/api/tasks/:id', isAuthenticated, validateTask, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, status, dueDate } = req.body;
@@ -298,13 +433,34 @@ app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
       updateFields.dueDate = dueDate ? new Date(dueDate) : null;
     }
 
+    if (title && title.length < 3) {
+  return res.status(400).json({ error: "Title too short" });
+}
+
+if (description && description.length < 3) {
+  return res.status(400).json({ error: "Description too short" });
+}
+
+if (dueDate && isNaN(Date.parse(dueDate))) {
+  return res.status(400).json({ error: "Invalid due date" });
+}
+
     const db = getDb();
 
-    const result = await db.collection('tasks').findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { $set: updateFields },
-      { returnDocument: 'after' }
-    );
+    const filter =
+  req.session.user.role === "admin"
+    ? { _id: new ObjectId(id) }
+    : {
+        _id: new ObjectId(id),
+        userId: new ObjectId(req.session.userId)
+      };
+
+const result = await db.collection('tasks').findOneAndUpdate(
+  filter,
+  { $set: updateFields },
+  { returnDocument: 'after' }
+);
+
 
     if (!result.value) {
       return res.status(404).json({ error: 'Task not found' });
@@ -327,9 +483,22 @@ app.delete('/api/tasks/:id', isAuthenticated, async (req, res) => {
 
     const db = getDb();
 
-    const result = await db.collection('tasks').deleteOne({
-      _id: new ObjectId(id)
-    });
+    const filter =
+  req.session.user.role === "admin"
+    ? { _id: new ObjectId(id) }
+    : {
+        _id: new ObjectId(id),
+        userId: new ObjectId(req.session.userId)
+      };
+
+const result = await db.collection('tasks').deleteOne(filter);
+
+if (result.deletedCount === 0) {
+  return res.status(404).json({ error: 'Task not found' });
+}
+
+res.status(200).json({ message: 'Task deleted successfully' });
+
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Task not found' });
