@@ -2,10 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>About</title>
+  <title>About - TaskManager</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+
+<header class="navbar">
+  <div class="logo">TaskManager</div>
 
   <nav>
     <a href="/">Home</a>
@@ -13,16 +16,71 @@
     <a href="/contact">Contact</a>
   </nav>
 
-  <h1>About the Project</h1>
+  <div class="nav-buttons">
+    <button id="login-btn" onclick="showLogin()">Login</button>
+    <button id="register-btn" onclick="showRegister()">Register</button>
+    <button id="logout-btn" onclick="logout()" style="display:none;">Logout</button>
+    <button id="theme-toggle" onclick="toggleTheme()">🌙</button>
+  </div>
+</header>
 
-  <p>
-    This project is a simple Task Manager application created using
-    Node.js and Express.js as part of the Web Technologies 2 course.
-  </p>
+<main>
+  <section class="page-section">
+    <h1>About This Project</h1>
+    <p>Modern secure backend application built with Node.js & MongoDB.</p>
 
-  <p>
-    The goal of the project is to practice backend routing and form handling.
-  </p>
+    <h2>Project Overview</h2>
+    <p>
+      TaskManager is a full-stack web application developed as part of Web Technologies 2.
+      It demonstrates authentication, session management, secure password hashing,
+      RESTful API design and MongoDB integration.
+    </p>
+
+    <h2>Technologies Used</h2>
+    <ul>
+      <li>Node.js</li>
+      <li>Express.js</li>
+      <li>MongoDB Atlas</li>
+      <li>bcrypt</li>
+      <li>express-session</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-container">
+
+    <div>
+      <h3>TaskManager</h3>
+      <p>Secure and modern task management platform.</p>
+      <p>© 2026 TaskManager. All rights reserved.</p>
+    </div>
+
+    <div>
+      <h4>Company</h4>
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+    </div>
+
+    <div>
+      <h4>Legal</h4>
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Cookies</a>
+    </div>
+
+    <div>
+      <h4>Follow Us</h4>
+      <a href="#">Twitter</a>
+      <a href="#">LinkedIn</a>
+      <a href="#">GitHub</a>
+    </div>
+
+  </div>
+</footer>
+
+<script src="/app.js"></script>
 
 </body>
 </html>

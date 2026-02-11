@@ -7,29 +7,114 @@
 </head>
 <body>
 
-  <div id="login-section">
-  <h3>Login</h3>
-  <input type="text" id="login-username" placeholder="Username">
-  <input type="password" id="login-password" placeholder="Password">
-  <button onclick="login()">Login</button>
-  <p id="login-message"></p>
+<header class="navbar">
+  <div class="logo">TaskManager</div>
+
+  <nav>
+    <a href="/">Home</a>
+    <a href="/about">About</a>
+    <a href="/contact">Contact</a>
+  </nav>
+
+  <div class="nav-buttons">
+  <button id="login-btn" onclick="showLogin()">Login</button>
+  <button id="register-btn" onclick="showRegister()">Register</button>
+  <button id="logout-btn" onclick="logout()" style="display:none;">Logout</button>
+  <button id="theme-toggle" onclick="toggleTheme()">🌙</button>
+</div>
+</header>
+
+<main>
+<section class="hero">
+  <h1>Manage Your Tasks Professionally</h1>
+  <p>Secure, Fast and Modern Task Management System</p>
+  <button class="btn-primary large" onclick="showLogin()">Get Started</button>
+</section>
+
+<!-- AUTH MODAL -->
+<div class="modal" id="auth-modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+
+    <div id="login-box">
+      <h2>Login</h2>
+      <input type="text" id="login-username" placeholder="Username">
+      <input type="password" id="login-password" placeholder="Password">
+      <button class="btn-primary" onclick="login()">Login</button>
+      <p id="login-message"></p>
+    </div>
+
+    <div id="register-box" style="display:none;">
+      <h2>Register</h2>
+      <input type="text" id="register-username" placeholder="Username">
+      <input type="password" id="register-password" placeholder="Password">
+      <button class="btn-primary" onclick="register()">Register</button>
+      <p id="register-message"></p>
+    </div>
+
+  </div>
 </div>
 
-<hr>
+<!-- TASK SECTION -->
+<section id="task-section" style="display:none;">
+  <h2>Your Tasks</h2>
 
-
-  <h1>Task Manager</h1>
-
-<div id="task-section" style="display:none;">
   <form id="task-form">
     <input type="text" id="title" placeholder="Title" required />
     <input type="text" id="description" placeholder="Description" required />
-    <button type="submit">Add Task</button>
+    <input type="date" id="dueDate">
+    <button class="btn-primary" type="submit">Add Task</button>
   </form>
+
+  <div class="filters">
+  <select id="status-filter" onchange="loadTasks()">
+    <option value="All">All</option>
+    <option value="To Do">To Do</option>
+    <option value="In Progress">In Progress</option>
+    <option value="Done">Done</option>
+  </select>
 </div>
 
   <ul id="task-list"></ul>
+</section>
+</main>
 
-  <script src="/app.js"></script>
+<script src="/app.js"></script>
+
+<footer class="footer">
+  <div class="footer-container">
+
+    <div class="footer-left">
+      <h3>TaskManager</h3>
+      <p>Secure and modern task management platform.</p>
+      <p>© 2026 TaskManager. All rights reserved.</p>
+    </div>
+
+    <div class="footer-links">
+      <h4>Company</h4>
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+    </div>
+
+    <div class="footer-links">
+      <h4>Legal</h4>
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Cookies</a>
+    </div>
+
+    <div class="footer-social">
+      <h4>Follow Us</h4>
+      <div class="social-icons">
+        <a href="#">Twitter</a>
+        <a href="#">LinkedIn</a>
+        <a href="#">GitHub</a>
+      </div>
+    </div>
+
+  </div>
+</footer>
+
 </body>
 </html>

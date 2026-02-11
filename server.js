@@ -86,6 +86,17 @@ app.get('/api/info', (req, res) => {
   });
 });
 
+app.get('/api/check-auth', (req, res) => {
+  if (req.session.userId) {
+    return res.json({
+      authenticated: true,
+      username: req.session.username
+    });
+  }
+
+  res.json({ authenticated: false });
+});
+
 app.post('/api/users', async (req, res) => {
   const { username, password } = req.body;
 
@@ -238,23 +249,29 @@ app.post('/logout', (req, res) => {
 
 app.post('/api/tasks', isAuthenticated, async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, dueDate } = req.body;
 
     if (!title || !description) {
-      return res.status(400).json({ error: 'Title and description are required' });
+      return res.status(400).json({
+        error: 'Title and description are required'
+      });
     }
 
     const db = getDb();
 
-    const result = await db.collection('tasks').insertOne({
+    const newTask = {
       title,
-      description
-    });
+      description,
+      status: "To Do",
+      dueDate: dueDate ? new Date(dueDate) : null,
+      createdAt: new Date()
+    };
+
+    const result = await db.collection('tasks').insertOne(newTask);
 
     res.status(201).json({
       _id: result.insertedId,
-      title,
-      description
+      ...newTask
     });
 
   } catch (err) {
@@ -265,25 +282,27 @@ app.post('/api/tasks', isAuthenticated, async (req, res) => {
 app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description } = req.body;
+    const { title, description, status, dueDate } = req.body;
 
-    // validate id
     if (!ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid task ID' });
     }
 
-    // validate body
-    if (!title || !description) {
-      return res.status(400).json({
-        error: 'Title and description are required'
-      });
+    const updateFields = {};
+
+    if (title) updateFields.title = title;
+    if (description) updateFields.description = description;
+    if (status) updateFields.status = status;
+
+    if (dueDate !== undefined) {
+      updateFields.dueDate = dueDate ? new Date(dueDate) : null;
     }
 
     const db = getDb();
 
     const result = await db.collection('tasks').findOneAndUpdate(
       { _id: new ObjectId(id) },
-      { $set: { title, description } },
+      { $set: updateFields },
       { returnDocument: 'after' }
     );
 
@@ -292,6 +311,7 @@ app.put('/api/tasks/:id', isAuthenticated, async (req, res) => {
     }
 
     res.status(200).json(result.value);
+
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
   }

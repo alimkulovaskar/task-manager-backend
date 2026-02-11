@@ -2,10 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Contact</title>
+  <title>Contact - TaskManager</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+
+<header class="navbar">
+  <div class="logo">TaskManager</div>
 
   <nav>
     <a href="/">Home</a>
@@ -13,29 +16,62 @@
     <a href="/contact">Contact</a>
   </nav>
 
-  <h1>Contact Us</h1>
+  <div class="nav-buttons">
+    <button id="login-btn" onclick="showLogin()">Login</button>
+    <button id="register-btn" onclick="showRegister()">Register</button>
+    <button id="logout-btn" onclick="logout()" style="display:none;">Logout</button>
+    <button id="theme-toggle" onclick="toggleTheme()">🌙</button>
+  </div>
+</header>
 
-  <form action="/contact" method="POST">
-    <label>
-      Name:<br>
-      <input type="text" name="name" required>
-    </label>
-    <br><br>
+<main>
+  <section class="page-section">
+    <h1>Contact Us</h1>
+    <p>Feel free to reach out.</p>
 
-    <label>
-      Email:<br>
-      <input type="email" name="email" required>
-    </label>
-    <br><br>
+    <form class="contact-form">
+      <input type="text" placeholder="Your name" required>
+      <input type="email" placeholder="Your email" required>
+      <textarea placeholder="Your message" required></textarea>
+      <button class="btn-primary">Send Message</button>
+    </form>
+  </section>
+</main>
 
-    <label>
-      Message:<br>
-      <textarea name="message" rows="5" required></textarea>
-    </label>
-    <br><br>
+<footer class="footer">
+  <div class="footer-container">
 
-    <button type="submit">Send</button>
-  </form>
+    <div>
+      <h3>TaskManager</h3>
+      <p>Secure and modern task management platform.</p>
+      <p>© 2026 TaskManager. All rights reserved.</p>
+    </div>
+
+    <div>
+      <h4>Company</h4>
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+    </div>
+
+    <div>
+      <h4>Legal</h4>
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Cookies</a>
+    </div>
+
+    <div>
+      <h4>Follow Us</h4>
+      <a href="#">Twitter</a>
+      <a href="#">LinkedIn</a>
+      <a href="#">GitHub</a>
+    </div>
+
+  </div>
+</footer>
+
+<script src="/app.js"></script>
 
 </body>
 </html>
